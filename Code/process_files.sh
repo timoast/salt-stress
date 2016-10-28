@@ -18,7 +18,7 @@ for myfile in ./*.bam; do
 	   REMOVE_DUPLICATES=true
     samtools index $fname.rmdup.bam
     cd ..
-    mv $fname 
+    mv $fname $wd
     cd $wd
 done
 
