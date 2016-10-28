@@ -6,6 +6,8 @@
 # index
 # move back to working_data
 
+alias picard='/home/tstuart/working_data/Tools/jre1.8.0_77/bin/java -jar /home/tstuart/working_data/Tools/picard-tools-2.1.1/picard.jar'
+
 wd=`pwd`
 
 for myfile in ./*.bam; do
