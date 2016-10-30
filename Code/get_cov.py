@@ -41,7 +41,7 @@ def check_bam(bam, p=1, make_new_index=False):
     return chrom_sizes
 
 
-def get_coverages(chrom, start, stop, bam, chrom_sizes):
+def get_coverages(chrom, start, stop, bam, chrom_sizes, scaling):
     """
     find average coverage in given region
     """
@@ -54,14 +54,29 @@ def get_coverages(chrom, start, stop, bam, chrom_sizes):
     interval_length = stop - start
     for read in bam.pileup(chrom, start, stop):
         coverage += read.n
-    data_string = "\t".join([chrom, str(start), str(stop)]) + "\t"  + str(coverage / interval_length)
+    norm_coverage = ((coverage / interval_data) / scaling) * 10**6
+    data_string = "\t".join([chrom, str(start), str(stop), str(coverage / interval_length), str(norm_coverage)])
     return data_string
+
+
+def normalization(options):
+    """
+    find total number of mapped reads for each chromosome
+    to be used as a scaling factor
+    when comparing between samples
+    """
+    stats = pysam.idxstats(options.file)
+    norms = {}
+    for i in stats:
+        norms[i.rsplit()[0]] = int(i.rsplit()[2])        
+    return norms
 
 
 def main(options):
     # first check bam file is sorted and has an index
     chrom_sizes = check_bam(options.file)
     bam = pysam.AlignmentFile(options.file, "rb")
+    scaling_factors = normalization(options)
     # now find the mean coverage in each bin and write to file
     with open(options.output, "w+") as outfile:
         for chrom in chrom_sizes.keys():
@@ -70,7 +85,7 @@ def main(options):
                 interval_data = get_coverages(chrom,
                                               start_position,
                                               start_position + int(options.size),
-                                              bam, chrom_sizes)
+                                              bam, chrom_sizes, scaling_factors)
                 outfile.write(interval_data + "\n")
                 start_position += int(options.size)
     bam.close()
