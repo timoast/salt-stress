@@ -64,15 +64,16 @@ def main(options):
     bam = pysam.AlignmentFile(options.file, "rb")
     # now find the mean coverage in each bin and write to file
     with open(options.output, "w+") as outfile:
-        for chrom in range(len(chrom_sizes)):
-            start_position = 1
+        for chrom in chrom_sizes.keys():
+            start_position = 0
             while start_position < chrom_sizes[chrom]:
-                interval_data = get_coverages(str(chrom+1),
+                interval_data = get_coverages(chrom,
                                               start_position,
-                                              start_position + options.size,
+                                              start_position + int(options.size),
                                               bam, chrom_sizes)
                 outfile.write(interval_data + "\n")
-                start_position += options.size
+                print interval_data
+                start_position += int(options.size)
     bam.close()
 
 
