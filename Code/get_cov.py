@@ -72,7 +72,6 @@ def main(options):
                                               start_position + int(options.size),
                                               bam, chrom_sizes)
                 outfile.write(interval_data + "\n")
-                print interval_data
                 start_position += int(options.size)
     bam.close()
 
