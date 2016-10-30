@@ -1,0 +1,58 @@
+---
+title: "ATACseq"
+author: "Tim Stuart"
+date: "29/10/2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+source("http://bioconductor.org/biocLite.R")
+biocLite()
+```
+```{r}
+library(Rsamtools)
+library(BSgenome.Athaliana.TAIR.TAIR9)
+```
+
+```{r}
+bam <- scanBam("../Data/RL400_SHR_1_Ctrl.rmdup.bam")
+```
+
+```{r}
+bf <- BamFile("../Data/RL400_SHR_1_Ctrl.rmdup.bam")
+sbp <- ScanBamParam(which=GRanges("1", IRanges(1, 10000)))
+pl <- pileup(bf, scanBamParam = sbp)
+```
+
+```{r}
+hist(pl$count, breaks = 50, col = "lightblue")
+```
+
+
+Try looping over and grouping into 10 bp bins. If it works, can scale up to whole genome.
+
+```{r}
+steps <- 
+```
+
+
+For the whole chromosome 1
+
+```{r}
+bf <- BamFile("../Data/RL400_SHR_1_Ctrl.rmdup.bam")
+sbp <- ScanBamParam(which=GRanges("1", IRanges(1, length(Athaliana$Chr1))))
+pl <- pileup(bf, scanBamParam = sbp)
+```
+
+Now collapse into 10kb bins
+
+
+
+
+
+
+
