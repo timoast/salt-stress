@@ -61,7 +61,7 @@ def get_coverages(chrom, start, stop, bam, chrom_sizes):
 def main(options):
     # first check bam file is sorted and has an index
     chrom_sizes = check_bam(options.file)
-    bam = pysam.AlignmentFile(option.file, "rb")
+    bam = pysam.AlignmentFile(options.file, "rb")
     # now find the mean coverage in each bin and write to file
     with open(options.output, "w+") as outfile:
         for chrom in range(len(chrom_sizes)):
