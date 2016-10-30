@@ -5,7 +5,7 @@ import pysam
 import os
 
 
-def check_bam(bam, p, make_new_index=False):
+def check_bam(bam, p=1, make_new_index=False):
     """
     Sort and index bam file
     returns dictionary of chromosome names and lengths
