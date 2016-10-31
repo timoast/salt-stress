@@ -58,7 +58,12 @@ def get_coverages(chrom, start, stop, bam, chrom_sizes, scaling):
         norm_coverage = ((coverage / interval_length) / scaling[chrom]) * 10**6
     else:
         norm_coverage = 0
-    data_string = "\t".join([chrom, str(start), str(stop), str(coverage / interval_length), str(norm_coverage)])
+    counts = bam.count(chrom, start, stop)
+    if counts > 0:
+        rp100kpm = ((counts / interval_length) / scaling[chrom]) * 10**6
+    else:
+        rp100kpm = 0
+    data_string = "\t".join([chrom, str(start), str(stop), str(coverage / interval_length), str(norm_coverage), str(rp100kpm)])
     return data_string
 
 
@@ -68,7 +73,7 @@ def normalization(options):
     to be used as a scaling factor
     when comparing between samples
     """
-    stats = pysam.idxstats(options.file).split("\n")[:-1]
+    stats = pysam.idxstats(options.file)
     norms = {}
     for i in stats:
         norms[i.rsplit()[0]] = int(i.rsplit()[2])        
@@ -82,7 +87,7 @@ def main(options):
     scaling_factors = normalization(options)
     # now find the mean coverage in each bin and write to file
     with open(options.output, "w+") as outfile:
-        outfile.write("chromosome\tstart\tstop\tcoverage\tnormalized_coverage\n")
+        outfile.write("chromosome\tstart\tstop\tcoverage\tnormalized_coverage\trpkm\n")
         for chrom in chrom_sizes.keys():
             start_position = 0
             while start_position < chrom_sizes[chrom]:
