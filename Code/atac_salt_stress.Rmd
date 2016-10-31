@@ -9,50 +9,49 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
-source("http://bioconductor.org/biocLite.R")
-biocLite()
-```
-```{r}
-library(Rsamtools)
-library(BSgenome.Athaliana.TAIR.TAIR9)
+```{r libraries}
+library(readr)
+library(RColorBrewer)
 ```
 
+Load data
+
+```{r data}
+files <- list.files("../Data/", full.names = TRUE)
+dat <- lapply(files, read_tsv)
+names(dat) <- list.files("../Data")
+```
+
+Define function
+
 ```{r}
-bam <- scanBam("../Data/RL400_SHR_1_Ctrl.rmdup.bam")
+plot_heatmap <- function(d, chromosome, color, sample_name) {
+        subs_data <- d[d$chromosome == chromosome,]
+        return(image(as.matrix(subs_data$normalized_coverage),
+                     col = color,
+                     main = sample_name))
+}
 ```
 
 ```{r}
-bf <- BamFile("../Data/RL400_SHR_1_Ctrl.rmdup.bam")
-sbp <- ScanBamParam(which=GRanges("1", IRanges(1, 10000)))
-pl <- pileup(bf, scanBamParam = sbp)
+color <- colorRampPalette(brewer.pal(9, "YlGn"))(100)
 ```
 
-```{r}
-hist(pl$count, breaks = 50, col = "lightblue")
+Apply function to list of files
+
+```{r heatmaps}
+for(chrom in seq(1, 5)){
+        pdf(paste("../Plots/chr", as.character(chrom), ".pdf", sep = ""), height = 40, width = 5)
+        par(mfrow=c(20, 1))
+        for(i in seq_along(dat)){
+                plot_heatmap(dat[[i]], chromosome = as.character(chrom),
+                             color = color,
+                             sample_name = unlist(strsplit(names(dat[i]), ".", fixed = TRUE))[[1]])
+        }
+        dev.off()
+}
+pdf("../Plots/scale_bar.pdf", height = 2, width = 5)
+image(matrix(seq(100)), col = color, main = "scale")
+dev.off()
 ```
-
-
-Try looping over and grouping into 10 bp bins. If it works, can scale up to whole genome.
-
-```{r}
-steps <- 
-```
-
-
-For the whole chromosome 1
-
-```{r}
-bf <- BamFile("../Data/RL400_SHR_1_Ctrl.rmdup.bam")
-sbp <- ScanBamParam(which=GRanges("1", IRanges(1, length(Athaliana$Chr1))))
-pl <- pileup(bf, scanBamParam = sbp)
-```
-
-Now collapse into 10kb bins
-
-
-
-
-
-
 
