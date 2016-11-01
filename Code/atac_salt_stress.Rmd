@@ -9,27 +9,46 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# ATAC salt stress
+
+## Distribution of reads
+
 ```{r libraries}
 library(readr)
+library(dplyr)
 library(RColorBrewer)
+library(ggplot2)
 ```
 
 Load data
 
-```{r data}
-files <- list.files("../Data/", full.names = TRUE)
+```{r data, message=FALSE, warning=FALSE}
+files <- list.files("../Data/read_counts/", full.names = TRUE)
 dat <- lapply(files, read_tsv)
-names(dat) <- list.files("../Data")
+names(dat) <- list.files("../Data/read_counts/")
 ```
 
 Define function
 
 ```{r}
-plot_heatmap <- function(d, chromosome, color, sample_name) {
+plot_heatmap <- function(d, chromosome, color, sample_name, max_value) {
         subs_data <- d[d$chromosome == chromosome,]
-        return(image(as.matrix(subs_data$normalized_coverage),
+        scaled_data <- scale_max(as.matrix(subs_data$rpkm), max_value)
+        return(image(scaled_data,
                      col = color,
-                     main = sample_name))
+                     main = sample_name, 
+                     xaxt="n", yaxt="n"))
+}
+
+scale_max <- function(m, l){
+  m.floor <- m > l
+  m[m.floor] <- l
+  return(m)
+}
+
+get_max <- function(d, chromosome){
+        subs_data <- d[d$chromosome == chromosome,]
+        return(max(subs_data$rpkm))
 }
 ```
 
@@ -37,16 +56,81 @@ plot_heatmap <- function(d, chromosome, color, sample_name) {
 color <- colorRampPalette(brewer.pal(9, "YlGn"))(100)
 ```
 
+
+There is a problem with chromosome 2, extremely high counts draws the whole thing up
+
+```{r}
+chr2_test <- filter(dat[[1]], chromosome == '2')
+plot(chr2_test$count ~ chr2_test$start)
+```
+
+We need to omit these three points in all the samples.
+
+Easiest way to locate them is to filter where count > 40000
+
+```{r}
+filter(chr2_test, count > 40000) %>% knitr::kable()
+```
+
+So we want to remove points on chromosome 2 where position between 3200000 and 3500000 for all samples
+
+```{r filter_chr2}
+filter_region <- function(df, chromosome, start, stop){
+        area_mask <- df$chromosome == chromosome & df$start >= start & df$stop <= stop
+        df[area_mask,c("coverage","normalized_coverage", "count", "rpkm")] <- NA
+        return(df)
+}
+```
+
+```{r}
+masked_chr2 <- filter_region(chr2_test, "2", 3200000, 3500000)
+plot(masked_chr2$count ~ masked_chr2$start)
+```
+
+Apply to each sample
+
+```{r}
+dat <- lapply(dat, filter_region, chromosome="2", start=3200000, stop=3500000)
+```
+
+Make a vector that contains the maximal value to set for each chromosome
+
+Find the maximum value to set for each chromosome (smallest maximum value among the samples)
+
+```{r find_smallest_max}
+all_data <- data_frame(chromosome = c("1", "2", "3", "4", "5", "Mt", "Pt"))
+for(i in seq_along(dat)) {
+        temp <- dat[[i]] %>%
+                group_by(chromosome) %>%
+                summarise(highest = max(rpkm, na.rm = TRUE))
+        all_data <- cbind(all_data, temp$highest)
+}
+minimums <- by(all_data, 1:nrow(all_data), function(row) min(row[2:length(row)]))
+```
+
+```{r}
+image_maxima <- c(minimums[[1]], minimums[[2]], minimums[[3]],
+                  minimums[[4]], minimums[[5]])
+names(image_maxima) <- c("1", "2", "3", "4", "5")
+```
+
+Save that scale info for future reference
+
+```{r scales}
+write_tsv(as_data_frame(image_maxima), path = "../Data/scales.tsv")
+```
+
 Apply function to list of files
 
 ```{r heatmaps}
 for(chrom in seq(1, 5)){
-        pdf(paste("../Plots/chr", as.character(chrom), ".pdf", sep = ""), height = 40, width = 5)
+        pdf(paste("../Plots/chr", as.character(chrom), ".pdf", sep = ""), height = 30, width = 5)
         par(mfrow=c(20, 1))
         for(i in seq_along(dat)){
                 plot_heatmap(dat[[i]], chromosome = as.character(chrom),
                              color = color,
-                             sample_name = unlist(strsplit(names(dat[i]), ".", fixed = TRUE))[[1]])
+                             sample_name = unlist(strsplit(names(dat[i]), ".", fixed = TRUE))[[1]],
+                             max_value = image_maxima[chrom][[1]])
         }
         dev.off()
 }
@@ -55,3 +139,107 @@ image(matrix(seq(100)), col = color, main = "scale")
 dev.off()
 ```
 
+## Ratio of reads in pericentromeres to chromosome arms
+
+Load centromere positions data
+
+```{r centromere_positions}
+centromeres <- read_tsv("../Data/centromeres.txt", col_names = c("chromosome", "start", "stop"))
+```
+
+Need to add a column to each dataframe with the distance to the nearest centromere
+
+```{r}
+get_centro_distance <- function(chrom, start, stop, centromeres) {
+  cent <- centromeres[centromeres$chromosome == as.numeric(chrom),]
+  midpoint <- (cent[[3]] + cent[[2]]) / 2
+  start_d <- abs(as.numeric(start) - midpoint)
+  stop_d <- abs(as.numeric(stop) - midpoint)
+  return(min(start_d, stop_d))
+}
+
+for(i in seq_along(dat)) {
+        dat[[i]] <- dat[[i]] %>%
+                filter(chromosome %in% c("1", "2", "3", "4", "5")) %>%
+                rowwise() %>%
+                mutate(centromere_distance = get_centro_distance(chromosome, start, stop, centromeres)) %>%
+                mutate(centromeric = centromere_distance < 2*10^6)
+}
+```
+
+Try a boxplot of read counts in the 100 kb bins in arms vs centromeric regions
+
+```{r}
+arms <- filter(dat[[1]], centromeric == FALSE)
+centro <- filter(dat[[2]], centromeric == TRUE)
+boxplot(arms$count, centro$count, names = c("arms", "centromeres"))
+```
+
+Apply to all samples
+
+```{r}
+# construct a dataframe
+boxplot_data <- data_frame(sample = factor(), rpkm = double(), centromeric = logical())
+for(i in seq_along(dat)) {
+        sample_name <- unlist(strsplit(names(dat[i]), ".", fixed = TRUE))[1]
+        df <- dat[[i]]
+        centro <- filter(df, centromeric == TRUE) %>% select(rpkm, centromeric)
+        arms <- filter(df, centromeric == FALSE) %>% select(rpkm, centromeric)
+        new_df <- rbind(centro, arms)
+        new_df$sample <- sample_name
+        boxplot_data <- rbind(boxplot_data, new_df)
+}
+```
+
+Plot boxplots
+
+```{r}
+ggplot(boxplot_data, aes(sample, rpkm, fill = centromeric)) +
+        geom_boxplot() +
+        theme_bw() +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Group by treatment
+
+```{r}
+library(tidyr)
+```
+
+```{r}
+boxplot_data <- boxplot_data %>%
+        separate(sample, c("ID", "Cell", "replicate", "Treatment")) %>%
+        unite(cell, Cell, replicate, sep = "_")
+```
+
+```{r}
+p <- ggplot(boxplot_data, aes(cell, rpkm, fill = centromeric)) +
+        geom_boxplot() +
+        facet_wrap(~Treatment) +
+        theme_bw() +
+        theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p
+```
+
+Save plot
+
+```{r}
+ggsave(p, filename = "../Plots/boxplot.pdf", height = 5, width = 15)
+```
+
+Another version without mannitor or PEP rep 3
+
+```{r}
+p <- boxplot_data %>%
+        filter(Treatment != "Mann", cell != "PEP_3") %>%
+        ggplot(., aes(cell, rpkm, fill = centromeric)) +
+                geom_boxplot() +
+                facet_wrap(~Treatment) +
+                theme_bw() +
+                theme(axis.text.x = element_text(angle = 90, hjust = 1))
+p
+```
+
+```{r}
+ggsave(p, filename = "../Plots/reduced_boxplot.pdf", height = 5, width = 10)
+```
