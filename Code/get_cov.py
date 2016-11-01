@@ -60,7 +60,7 @@ def get_coverages(chrom, start, stop, bam, chrom_sizes, scaling):
         norm_coverage = 0
     counts = bam.count(chrom, start, stop)
     if counts > 0:
-        rp100kpm = ((counts / interval_length) / scaling[chrom]) * 10**6
+        rp100kpm = ((((counts / interval_length) * 100000) / scaling[chrom])) * 10**6
     else:
         rp100kpm = 0
     data_string = "\t".join([chrom, str(start), str(stop), str(coverage / interval_length), str(norm_coverage), str(counts), str(rp100kpm)])
