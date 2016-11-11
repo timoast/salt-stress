@@ -111,6 +111,7 @@ minimums <- by(all_data, 1:nrow(all_data), function(row) min(row[2:length(row)])
 ```{r}
 image_maxima <- c(minimums[[1]], minimums[[2]], minimums[[3]],
                   minimums[[4]], minimums[[5]])
+image_maxima <- lapply(image_maxima, round, digits=-2)
 names(image_maxima) <- c("1", "2", "3", "4", "5")
 ```
 
@@ -163,7 +164,7 @@ for(i in seq_along(dat)) {
                 filter(chromosome %in% c("1", "2", "3", "4", "5")) %>%
                 rowwise() %>%
                 mutate(centromere_distance = get_centro_distance(chromosome, start, stop, centromeres)) %>%
-                mutate(centromeric = centromere_distance < 2*10^6)
+                mutate(centromeric = centromere_distance < 3*10^6)
 }
 ```
 
@@ -171,8 +172,8 @@ Try a boxplot of read counts in the 100 kb bins in arms vs centromeric regions
 
 ```{r}
 arms <- filter(dat[[1]], centromeric == FALSE)
-centro <- filter(dat[[2]], centromeric == TRUE)
-boxplot(arms$count, centro$count, names = c("arms", "centromeres"))
+centro <- filter(dat[[1]], centromeric == TRUE)
+boxplot(arms$rpkm, centro$count, names = c("arms", "centromeres"))
 ```
 
 Apply to all samples
@@ -243,3 +244,11 @@ p
 ```{r}
 ggsave(p, filename = "../Plots/reduced_boxplot.pdf", height = 5, width = 10)
 ```
+
+```{r}
+means <- boxplot_data %>%
+        group_by(cell, Treatment, centromeric) %>%
+        summarise(av = mean(rpkm, na.rm = TRUE))
+write_tsv(means, path = "../Data/mean_rpkm.tsv")
+```
+
