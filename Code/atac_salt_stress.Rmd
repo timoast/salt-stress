@@ -125,8 +125,8 @@ Apply function to list of files
 
 ```{r heatmaps}
 for(chrom in seq(1, 5)){
-        pdf(paste("../Plots/chr", as.character(chrom), ".pdf", sep = ""), height = 30, width = 5)
-        par(mfrow=c(20, 1))
+        pdf(paste("../Plots/chr", as.character(chrom), ".pdf", sep = ""), height = 35, width = 5)
+        par(mfrow=c(23, 1))
         for(i in seq_along(dat)){
                 plot_heatmap(dat[[i]], chromosome = as.character(chrom),
                              color = color,
@@ -232,7 +232,7 @@ Another version without mannitor or PEP rep 3
 
 ```{r}
 p <- boxplot_data %>%
-        filter(Treatment != "Mann", cell != "PEP_3") %>%
+        filter(Treatment != "Mann") %>%
         ggplot(., aes(cell, rpkm, fill = centromeric)) +
                 geom_boxplot() +
                 facet_wrap(~Treatment) +
