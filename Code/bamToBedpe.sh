@@ -3,12 +3,11 @@
 # Added safety. If any command fails or a pipe breaks, the script will stop running.
 set -eu -o pipefail -o verbose
 
-bam="$1"
-cores="$2"
-prefix=$(echo "$bam" | sed 's/.bam//g')
+prefix=(${1//.bam*/ })
+cores=$2
 
 # Sort bam file by read name
-samtools sort -n -@ "$cores" -T temp -O bam "$prefix".rmdup.bam > "$prefix".sorted.bam
+samtools sort -n -@ "$cores" -T temp -O bam "$prefix".bam > "$prefix".sorted.bam
 
 # Update/fix flags
 samtools fixmate "$prefix".sorted.bam "$prefix".fixed.bam
